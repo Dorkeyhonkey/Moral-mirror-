@@ -9,6 +9,7 @@ import android.view.ViewGroup
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NotificationCompat
+import java.text.SimpleDateFormat
 import java.util.*
 
 class MainActivity : AppCompatActivity() {
@@ -160,7 +161,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun saveCommitment(question: String, answer: String, commitment: String) {
         val existing = sharedPrefs.getStringSet(commitmentsKey, mutableSetOf()) ?: mutableSetOf()
-        val newEntry = "$question | Answer: $answer | Commitment: $commitment"
+        val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date())
+        val newEntry = "$timestamp | $question | Answer: $answer | Commitment: $commitment"
         existing.add(newEntry)
         sharedPrefs.edit().putStringSet(commitmentsKey, existing).apply()
     }
@@ -194,7 +196,7 @@ class MainActivity : AppCompatActivity() {
             }
             commitmentsLayout.addView(noCommitments)
         } else {
-            commitmentsSet.forEach { commitment ->
+            commitmentsSet.sortedDescending().forEach { commitment ->
                 val tv = TextView(this).apply {
                     text = commitment
                     setPadding(0, 10, 0, 10)
@@ -206,6 +208,14 @@ class MainActivity : AppCompatActivity() {
 
         scrollView.addView(commitmentsLayout)
 
+        val viewProgressButton = Button(this).apply {
+            text = "View Progress"
+            setOnClickListener {
+                val intent = Intent(this@MainActivity, ProgressActivity::class.java)
+                startActivity(intent)
+            }
+        }
+
         val restartButton = Button(this).apply {
             text = "Restart Quiz"
             setOnClickListener {
@@ -216,6 +226,7 @@ class MainActivity : AppCompatActivity() {
 
         layout.addView(title)
         layout.addView(scrollView)
+        layout.addView(viewProgressButton)
         layout.addView(restartButton)
 
         setContentView(layout)
