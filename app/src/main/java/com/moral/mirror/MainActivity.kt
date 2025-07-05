@@ -1,6 +1,56 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 package com.moral.mirror
 
+import android.content.Context
+import android.content.SharedPreferences
 import android.os.Bundle
+import android.view.ViewGroup
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 
@@ -13,55 +63,145 @@ class MainActivity : AppCompatActivity() {
         "Is revenge ever justified?",
         "Should you sacrifice one life to save many?"
     )
-    private val answers = mutableMapOf<String, Boolean>()
     private var currentQuestion = 0
-    private var score = 0
+    private lateinit var sharedPrefs: SharedPreferences
+    private val commitmentsKey = "commitments"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        sharedPrefs = getSharedPreferences("MoralMirrorPrefs", Context.MODE_PRIVATE)
+        showQuestion()
+    }
+
+    private fun showQuestion() {
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(32, 32, 32, 32)
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        if (currentQuestion < questions.size) {
+            val question = questions[currentQuestion]
+
+            val questionText = TextView(this).apply {
+                textSize = 18f
+                text = question
+            }
+
+            val answerGroup = RadioGroup(this)
+
+            val yesButton = RadioButton(this).apply { text = "Yes" }
+            val maybeButton = RadioButton(this).apply { text = "Maybe" }
+            val noButton = RadioButton(this).apply { text = "No" }
+
+            answerGroup.addView(yesButton)
+            answerGroup.addView(maybeButton)
+            answerGroup.addView(noButton)
+
+            val commitPrompt = TextView(this).apply {
+                text = "Make a personal commitment based on your answer:"
+                textSize = 16f
+                setPadding(0, 20, 0, 0)
+            }
+
+            val commitInput = EditText(this).apply {
+                hint = "Enter your commitment here"
+            }
+
+            val submitButton = Button(this).apply {
+                text = "Save Commitment & Next"
+                isEnabled = false
+            }
+
+            answerGroup.setOnCheckedChangeListener { _, _ ->
+                submitButton.isEnabled = true
+            }
+
+            submitButton.setOnClickListener {
+                val selectedId = answerGroup.checkedRadioButtonId
+                if (selectedId != -1) {
+                    val answer = findViewById<RadioButton>(selectedId).text.toString()
+                    val commitmentText = commitInput.text.toString().trim()
+                    if (commitmentText.isNotEmpty()) {
+                        saveCommitment(question, answer, commitmentText)
+                        currentQuestion++
+                        showQuestion()
+                    } else {
+                        Toast.makeText(this, "Please enter a commitment", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+
+            layout.addView(questionText)
+            layout.addView(answerGroup)
+            layout.addView(commitPrompt)
+            layout.addView(commitInput)
+            layout.addView(submitButton)
+
+            setContentView(layout)
+        } else {
+            showCommitments()
+        }
+    }
+
+    private fun saveCommitment(question: String, answer: String, commitment: String) {
+        val existing = sharedPrefs.getStringSet(commitmentsKey, mutableSetOf()) ?: mutableSetOf()
+        val newEntry = "$question | Answer: $answer | Commitment: $commitment"
+        existing.add(newEntry)
+        sharedPrefs.edit().putStringSet(commitmentsKey, existing).apply()
+    }
+
+    private fun showCommitments() {
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(32, 32, 32, 32)
         }
 
-        val questionText = TextView(this).apply {
-            textSize = 18f
-            text = questions[currentQuestion]
+        val commitmentsSet = sharedPrefs.getStringSet(commitmentsKey, emptySet()) ?: emptySet()
+
+        val title = TextView(this).apply {
+            text = "Your Commitments"
+            textSize = 20f
         }
 
-        val yesButton = Button(this).apply { text = "Yes" }
-        val noButton = Button(this).apply { text = "No" }
-        val scoreText = TextView(this).apply {
-            textSize = 16f
-            text = "Score: $score"
+        val scrollView = ScrollView(this)
+        val commitmentsLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
         }
 
-        yesButton.setOnClickListener {
-            answers[questions[currentQuestion]] = true
-            score += 1
-            nextQuestion(questionText, scoreText)
+        if (commitmentsSet.isEmpty()) {
+            val noCommitments = TextView(this).apply {
+                text = "No commitments yet."
+                textSize = 16f
+            }
+            commitmentsLayout.addView(noCommitments)
+        } else {
+            commitmentsSet.forEach { commitment ->
+                val tv = TextView(this).apply {
+                    text = commitment
+                    setPadding(0, 10, 0, 10)
+                }
+                commitmentsLayout.addView(tv)
+            }
         }
 
-        noButton.setOnClickListener {
-            answers[questions[currentQuestion]] = false
-            nextQuestion(questionText, scoreText)
+        scrollView.addView(commitmentsLayout)
+
+        val restartButton = Button(this).apply {
+            text = "Restart Quiz"
+            setOnClickListener {
+                currentQuestion = 0
+                showQuestion()
+            }
         }
 
-        layout.addView(questionText)
-        layout.addView(yesButton)
-        layout.addView(noButton)
-        layout.addView(scoreText)
+        layout.addView(title)
+        layout.addView(scrollView)
+        layout.addView(restartButton)
 
         setContentView(layout)
-    }
-
-    private fun nextQuestion(questionText: TextView, scoreText: TextView) {
-        currentQuestion += 1
-        if (currentQuestion < questions.size) {
-            questionText.text = questions[currentQuestion]
-            scoreText.text = "Score: $score"
-        } else {
-            questionText.text = "Your moral mirror score: $score / ${questions.size}"
-        }
     }
 }
